@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public abstract class Item<VH extends GroupieViewHolder> implements Group, SpanSizeProvider {
 
     private static AtomicLong ID_COUNTER = new AtomicLong(0);
-    protected GroupDataObserver parentDataObserver;
+    protected GroupDataObserver groupDataObserver;
     private final long id;
     private Map<String, Object> extras = new HashMap<>();
 
@@ -131,12 +131,12 @@ public abstract class Item<VH extends GroupieViewHolder> implements Group, SpanS
 
     @Override
     public void registerGroupDataObserver(@NonNull GroupDataObserver groupDataObserver) {
-        this.parentDataObserver = groupDataObserver;
+        this.groupDataObserver = groupDataObserver;
     }
 
     @Override
     public void unregisterGroupDataObserver(@NonNull GroupDataObserver groupDataObserver) {
-        parentDataObserver = null;
+        groupDataObserver = null;
     }
 
     @Override

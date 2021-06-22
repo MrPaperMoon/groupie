@@ -17,7 +17,7 @@ import java.util.List;
 /**
  * An adapter that holds a list of Groups.
  */
-public class GroupAdapter<VH extends GroupieViewHolder> extends RecyclerView.Adapter<VH> implements GroupDataObserver {
+public class GroupAdapter<VH extends GroupieViewHolder> extends RecyclerView.Adapter<VH> implements RecyclerDataObserver {
 
     private final List<Group> groups = new ArrayList<>();
     private OnItemClickListener onItemClickListener;
@@ -66,6 +66,35 @@ public class GroupAdapter<VH extends GroupieViewHolder> extends RecyclerView.Ada
         }
     };
 
+    protected RecyclerView.AdapterDataObserver recyclerObserver;
+    protected RecyclerView recyclerView;
+
+    /**
+     * Default [RecyclerView.Adapter] extends has leaking [RecyclerView]
+     *
+     * @param observer an [RecyclerView] contract to item updates
+     */
+    @Override
+    public void registerAdapterDataObserver(@NonNull RecyclerView.AdapterDataObserver observer) {
+        recyclerObserver = observer;
+    }
+
+    @Override
+    public void unregisterAdapterDataObserver(@NonNull RecyclerView.AdapterDataObserver observer) {
+        recyclerObserver = null;
+    }
+
+    @Override
+    public boolean notifyChanged(@NonNull RecyclerView.ViewHolder holder, @Nullable Object payload) {
+        RecyclerView.AdapterDataObserver observer = recyclerObserver;
+        int position = holder.getAdapterPosition();
+        if (observer != null && position != RecyclerView.NO_POSITION) {
+            observer.onItemRangeChanged(position, 1, payload);
+            return true;
+        }
+        return false;
+    }
+
     @NonNull
     public GridLayoutManager.SpanSizeLookup getSpanSizeLookup() {
         return spanSizeLookup;
@@ -82,14 +111,14 @@ public class GroupAdapter<VH extends GroupieViewHolder> extends RecyclerView.Ada
     /**
      * Updates the adapter with a new list that will be diffed on a background thread
      * and displayed once diff results are calculated.
-     *
+     * <p>
      * NOTE: This update method is NOT compatible with partial updates (change notifications
      * driven by individual groups and items).  If you update using this method, all partial
      * updates will no longer work and you must use this method to update exclusively.
      * <br/> <br/>
      * If you want to receive a callback once the update is complete call the
      * {@link #updateAsync(List, boolean, OnAsyncUpdateListener)} version
-     *
+     * <p>
      * This will default detectMoves to true.
      *
      * @param newGroups List of {@link Group}
@@ -102,16 +131,16 @@ public class GroupAdapter<VH extends GroupieViewHolder> extends RecyclerView.Ada
     /**
      * Updates the adapter with a new list that will be diffed on a background thread
      * and displayed once diff results are calculated.
-     *
+     * <p>
      * NOTE: This update method is NOT compatible with partial updates (change notifications
      * driven by individual groups and items).  If you update using this method, all partial
      * updates will no longer work and you must use this method to update exclusively.
      * <br/> <br/>
-     *
+     * <p>
      * This will default detectMoves to true.
      *
-     * @see #updateAsync(List, boolean, OnAsyncUpdateListener)
      * @param newGroups List of {@link Group}
+     * @see #updateAsync(List, boolean, OnAsyncUpdateListener)
      */
     @SuppressWarnings("unused")
     public void updateAsync(@NonNull final List<? extends Group> newGroups, @Nullable final OnAsyncUpdateListener onAsyncUpdateListener) {
@@ -121,15 +150,15 @@ public class GroupAdapter<VH extends GroupieViewHolder> extends RecyclerView.Ada
     /**
      * Updates the adapter with a new list that will be diffed on a background thread
      * and displayed once diff results are calculated.
-     *
+     * <p>
      * NOTE: This update method is NOT compatible with partial updates (change notifications
      * driven by individual groups and items).  If you update using this method, all partial
      * updates will no longer work and you must use this method to update exclusively.
      *
-     * @param newGroups List of {@link Group}
+     * @param newGroups             List of {@link Group}
      * @param onAsyncUpdateListener Optional callback for when the async update is complete
-     * @param detectMoves Boolean is passed to {@link DiffUtil#calculateDiff(DiffUtil.Callback, boolean)}. Set to true
-     *                    if you want DiffUtil to detect moved items.
+     * @param detectMoves           Boolean is passed to {@link DiffUtil#calculateDiff(DiffUtil.Callback, boolean)}. Set to true
+     *                              if you want DiffUtil to detect moved items.
      */
     @SuppressWarnings("unused")
     public void updateAsync(@NonNull final List<? extends Group> newGroups, boolean detectMoves, @Nullable final OnAsyncUpdateListener onAsyncUpdateListener) {
@@ -149,7 +178,7 @@ public class GroupAdapter<VH extends GroupieViewHolder> extends RecyclerView.Ada
 
     /**
      * Replaces the groups within the adapter without using DiffUtil, and therefore without animations.
-     *
+     * <p>
      * For animation support, use {@link GroupAdapter#update(Collection)} or {@link GroupAdapter#updateAsync(List)} instead.
      *
      * @param newGroups List of {@link Group}
@@ -163,7 +192,7 @@ public class GroupAdapter<VH extends GroupieViewHolder> extends RecyclerView.Ada
     /**
      * Updates the adapter with a new list that will be diffed on the <em>main</em> thread
      * and displayed once diff results are calculated. Not recommended for huge lists.
-     *
+     * <p>
      * This will default detectMoves to true.
      *
      * @param newGroups List of {@link Group}
@@ -176,7 +205,8 @@ public class GroupAdapter<VH extends GroupieViewHolder> extends RecyclerView.Ada
     /**
      * Updates the adapter with a new list that will be diffed on the <em>main</em> thread
      * and displayed once diff results are calculated. Not recommended for huge lists.
-     * @param newGroups List of {@link Group}
+     *
+     * @param newGroups   List of {@link Group}
      * @param detectMoves is passed to {@link DiffUtil#calculateDiff(DiffUtil.Callback, boolean)}. Set to false
      *                    if you don't want DiffUtil to detect moved items.
      */
@@ -219,7 +249,9 @@ public class GroupAdapter<VH extends GroupieViewHolder> extends RecyclerView.Ada
         LayoutInflater inflater = LayoutInflater.from(parent.getContext());
         Item<VH> item = getItemForViewType(viewType);
         View itemView = inflater.inflate(item.getLayout(), parent, false);
-        return item.createViewHolder(itemView);
+        VH viewHolder = item.createViewHolder(itemView);
+        viewHolder.parentDataObserver = this;
+        return viewHolder;
     }
 
     @Override
@@ -248,6 +280,7 @@ public class GroupAdapter<VH extends GroupieViewHolder> extends RecyclerView.Ada
     @Override
     public void onViewAttachedToWindow(@NonNull VH holder) {
         super.onViewAttachedToWindow(holder);
+        holder.parentDataObserver = this;
         Item item = getItem(holder);
         //noinspection unchecked
         item.onViewAttachedToWindow(holder);
@@ -256,6 +289,7 @@ public class GroupAdapter<VH extends GroupieViewHolder> extends RecyclerView.Ada
     @Override
     public void onViewDetachedFromWindow(@NonNull VH holder) {
         super.onViewDetachedFromWindow(holder);
+        holder.parentDataObserver = null;
         Item item = getItem(holder);
         //noinspection unchecked
         item.onViewDetachedFromWindow(holder);
@@ -274,11 +308,13 @@ public class GroupAdapter<VH extends GroupieViewHolder> extends RecyclerView.Ada
         return getItem(position).getId();
     }
 
-    public @NonNull Item getItem(@NonNull VH holder) {
+    public @NonNull
+    Item getItem(@NonNull VH holder) {
         return holder.getItem();
     }
 
-    public @NonNull Item getItem(int position) {
+    public @NonNull
+    Item getItem(int position) {
         return GroupUtils.getItem(groups, position);
     }
 
@@ -390,6 +426,7 @@ public class GroupAdapter<VH extends GroupieViewHolder> extends RecyclerView.Ada
 
     /**
      * Remove a Group at a raw adapter position
+     *
      * @param position raw adapter position of Group to remove
      */
     public void removeGroupAtAdapterPosition(int position) {
@@ -399,6 +436,7 @@ public class GroupAdapter<VH extends GroupieViewHolder> extends RecyclerView.Ada
 
     /**
      * Remove a Group at a raw adapter position.
+     *
      * @param adapterPosition raw adapter position of Group to remove.
      * @deprecated This method has been deprecated in favor of {@link #removeGroupAtAdapterPosition(int)}. Please use that method instead.
      */
@@ -472,6 +510,7 @@ public class GroupAdapter<VH extends GroupieViewHolder> extends RecyclerView.Ada
     /**
      * Returns the Group which contains this item or throws an {@link IndexOutOfBoundsException} if not present.
      * This is the item's <b>direct</b> parent, not necessarily one of the top level groups present in this adapter.
+     *
      * @param contentItem Item to find the parent group for.
      * @return Parent group of this item.
      */

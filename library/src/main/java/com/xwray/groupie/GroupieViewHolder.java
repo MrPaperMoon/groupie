@@ -12,6 +12,8 @@ public class GroupieViewHolder extends RecyclerView.ViewHolder {
     private OnItemClickListener onItemClickListener;
     private OnItemLongClickListener onItemLongClickListener;
 
+    protected RecyclerDataObserver parentDataObserver;
+
     private View.OnClickListener onClickListener = new View.OnClickListener() {
         @Override
         public void onClick(@NonNull View v) {
@@ -93,5 +95,9 @@ public class GroupieViewHolder extends RecyclerView.ViewHolder {
 
     public View getRoot() {
         return itemView;
+    }
+
+    private boolean notifyChanged(@Nullable Object payload) {
+        return parentDataObserver.notifyChanged(this, payload);
     }
 }
